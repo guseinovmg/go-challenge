@@ -23,7 +23,7 @@ const retries = 3
 const cashDurationSeconds = 30
 
 func init() {
-	var cashChecker = time.Tick(time.Second * cashDurationSeconds)
+	var cashChecker = time.Tick(time.Second * 5)
 	go func() {
 		for timer := range cashChecker {
 			fmt.Println("clear cash ", timer)
@@ -48,9 +48,7 @@ func (s *Service) Translate(ctx context.Context, from, to language.Tag, data str
 	for i := 1; i <= retries; i++ {
 		item, ok := cash[key]
 		if ok {
-			if time.Since(item.timestamp) < time.Second*cashDurationSeconds {
-				return item.data, nil
-			}
+			return item.data, nil
 		}
 		fmt.Println(cash, ok, i)
 		var translation string
@@ -65,6 +63,10 @@ func (s *Service) Translate(ctx context.Context, from, to language.Tag, data str
 			case <-ctx.Done():
 				return "", ctx.Err()
 			case <-time.After(time.Second):
+				item, ok := cash[key]
+				if ok {
+					return item.data, nil
+				}
 			}
 		}
 	}

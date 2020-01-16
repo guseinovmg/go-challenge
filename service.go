@@ -23,6 +23,7 @@ const retries = 3
 const cashDurationSeconds = 30
 
 func init() {
+	//remove outdated data in cash every 5 sec
 	var cashChecker = time.Tick(time.Second * 5)
 	go func() {
 		for timer := range cashChecker {
@@ -58,10 +59,12 @@ func (s *Service) Translate(ctx context.Context, from, to language.Tag, data str
 			cash[key] = cashItem{data: translation, timestamp: time.Now()}
 			return translation, err
 		}
+		// delay if request is unsuccessful
 		for j := 0; j < i*i; j++ {
 			select {
 			case <-ctx.Done():
 				return "", ctx.Err()
+				// check every second if another same request put result in cash
 			case <-time.After(time.Second):
 				item, ok := cash[key]
 				if ok {

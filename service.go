@@ -20,7 +20,7 @@ type Service struct {
 var cash = make(map[string]cashItem)
 
 const retries = 3
-const cashDurationSeconds = 30
+const cashDurationSeconds = 15
 
 func init() {
 	//remove outdated data in cash every 5 sec
@@ -41,34 +41,30 @@ func (s *Service) Translate(ctx context.Context, from, to language.Tag, data str
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
-	default:
+	default: // default case prevents blocking
 	}
 	key := fmt.Sprintf("from %s, to %s  data %s", from, to, data)
 	fmt.Println(key)
 	var err error = nil
 	for i := 1; i <= retries; i++ {
-		item, ok := cash[key]
-		if ok {
-			return item.data, nil
+		if cashedTranslation, ok := cash[key]; ok {
+			return cashedTranslation.data, nil
 		}
-		fmt.Println(cash, ok, i)
-		var translation string
-		translation, err = s.translator.Translate(ctx, from, to, data)
+		translation, err := s.translator.Translate(ctx, from, to, data)
 		fmt.Println(err, i)
 		if err == nil {
 			cash[key] = cashItem{data: translation, timestamp: time.Now()}
 			return translation, err
 		}
-		// delay if request is unsuccessful
+		//retry after delay if request is unsuccessful
 		for j := 0; j < i*i; j++ {
 			select {
 			case <-ctx.Done():
 				return "", ctx.Err()
 				// check every second if another same request put result in cash
 			case <-time.After(time.Second):
-				item, ok := cash[key]
-				if ok {
-					return item.data, nil
+				if cashedTranslation, ok := cash[key]; ok {
+					return cashedTranslation.data, nil
 				}
 			}
 		}
@@ -76,13 +72,7 @@ func (s *Service) Translate(ctx context.Context, from, to language.Tag, data str
 	return "", err
 }
 
-func NewService() *Service {
-	t := newRandomTranslator(
-		100*time.Millisecond,
-		500*time.Millisecond,
-		0.4,
-	)
-
+func NewService(t Translator) *Service {
 	return &Service{
 		translator: t,
 	}

@@ -50,7 +50,8 @@ func (s *Service) Translate(ctx context.Context, from, to language.Tag, data str
 		if cashedTranslation, ok := cash[key]; ok {
 			return cashedTranslation.data, nil
 		}
-		translation, err := s.translator.Translate(ctx, from, to, data)
+		var translation string
+		translation, err = s.translator.Translate(ctx, from, to, data)
 		fmt.Println(err, i)
 		if err == nil {
 			cash[key] = cashItem{data: translation, timestamp: time.Now()}

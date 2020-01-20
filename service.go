@@ -44,7 +44,6 @@ func (s *Service) Translate(ctx context.Context, from, to language.Tag, data str
 	default: // default case prevents blocking
 	}
 	key := fmt.Sprintf("from %s, to %s  data %s", from, to, data)
-	fmt.Println(key)
 	var err error = nil
 	for i := 1; i <= retries; i++ {
 		if cashedTranslation, ok := cash[key]; ok {
@@ -52,10 +51,12 @@ func (s *Service) Translate(ctx context.Context, from, to language.Tag, data str
 		}
 		var translation string
 		translation, err = s.translator.Translate(ctx, from, to, data)
-		fmt.Println(err, i)
 		if err == nil {
 			cash[key] = cashItem{data: translation, timestamp: time.Now()}
 			return translation, err
+		}
+		if i == retries {
+			break
 		}
 		//retry after delay if request is unsuccessful
 		for j := 0; j < i*i; j++ {

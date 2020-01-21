@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type cashItem struct {
+type cacheItem struct {
 	timestamp time.Time
 	data      string
 }
@@ -17,20 +17,20 @@ type Service struct {
 	translator Translator
 }
 
-var cash = make(map[string]cashItem)
+var cache = make(map[string]cacheItem)
 
 const retries = 3
-const cashDurationSeconds = 15
+const cacheDurationSeconds = 15
 
 func init() {
-	//remove outdated data in cash every 5 sec
-	var cashChecker = time.Tick(time.Second * 5)
+	//remove outdated data in cache every 5 sec
+	var cacheChecker = time.Tick(time.Second * 5)
 	go func() {
-		for timer := range cashChecker {
-			fmt.Println("clear cash ", timer)
-			for k, v := range cash {
-				if time.Since(v.timestamp) < time.Second*cashDurationSeconds {
-					delete(cash, k)
+		for timer := range cacheChecker {
+			fmt.Println("clear cache ", timer)
+			for k, v := range cache {
+				if time.Since(v.timestamp) < time.Second*cacheDurationSeconds {
+					delete(cache, k)
 				}
 			}
 		}
@@ -46,13 +46,13 @@ func (s *Service) Translate(ctx context.Context, from, to language.Tag, data str
 	key := fmt.Sprintf("from %s, to %s  data %s", from, to, data)
 	var err error = nil
 	for i := 1; i <= retries; i++ {
-		if cashedTranslation, ok := cash[key]; ok {
-			return cashedTranslation.data, nil
+		if cachedTranslation, ok := cache[key]; ok {
+			return cachedTranslation.data, nil
 		}
 		var translation string
 		translation, err = s.translator.Translate(ctx, from, to, data)
 		if err == nil {
-			cash[key] = cashItem{data: translation, timestamp: time.Now()}
+			cache[key] = cacheItem{data: translation, timestamp: time.Now()}
 			return translation, err
 		}
 		if i == retries {
@@ -63,10 +63,10 @@ func (s *Service) Translate(ctx context.Context, from, to language.Tag, data str
 			select {
 			case <-ctx.Done():
 				return "", ctx.Err()
-				// check every second if another same request put result in cash
+				// check every second if another same request put result in cache
 			case <-time.After(time.Second):
-				if cashedTranslation, ok := cash[key]; ok {
-					return cashedTranslation.data, nil
+				if cachedTranslation, ok := cache[key]; ok {
+					return cachedTranslation.data, nil
 				}
 			}
 		}
